@@ -26,6 +26,9 @@
 #define EMMC_RECOVERY    3
 #define USB_BOOTIMG      4
 
+#define DISPLAYCPR_TOKEN_MAXSIZE 50
+#define DISPLAYCPR_NUM_VALUES 9
+
 enum coolcharger_ppz_t {
 	COOLCHARGER_DISABLE,					//normal boot without coolcharger handling
 	COOLCHARGER_SHUTDOWN_NOACTION,			//cannot show anything because of too low battery
@@ -44,12 +47,18 @@ struct img_info {
 	uint16_t 	bg_color;
 };
 
+struct cpr_info {
+	int	cpr_values[DISPLAYCPR_NUM_VALUES];
+	int	cpr_values_valid;
+};
+
 int set_boot_mode(void);
 void display_rle(uint16_t const *start, uint16_t *fb, int width, int height);
 int display_ppm(uint8_t *ppm, uint32_t *fb, int width, int height);
 int display_gzip_ppm(ppz_images use ,uint32_t *fb, int width, int height);
 int display_mmc_gzip_ppm(int mmc, int part, const char *filename, uint32_t *fb, int width, int height);
 int boot_display_gzip_ppm(uint32_t *fb, int width, int height);
+int load_display_cpr(void);
 
 void turn_panel_on(void);
 void turn_panel_off(void);

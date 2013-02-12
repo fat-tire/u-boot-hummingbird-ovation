@@ -79,6 +79,10 @@
 #define DISPC_DEFAULT_COLOR0	(0x4804104C)
 #define DISPC_DEFAULT_COLOR1	(0x48041050)
 
+#define DISPC_CPR1_COEF_R	(0x48041220)
+#define DISPC_CPR1_COEF_G	(0x48041224)
+#define DISPC_CPR1_COEF_B	(0x48041228)
+
 #define DSS_CTRL		(0x48040040)
 #define DSS_STATUS		(0x4804005C)
 
@@ -192,6 +196,7 @@ DUMP_REG(CONTROL_DSIPHY);
 #endif
 
 extern struct img_info bootimg_info;
+extern struct cpr_info display_cpr_info;
 
 static inline int wait_for_bit_change(u32 reg, int bitnum, int value)
 {
@@ -861,6 +866,25 @@ void dispc_config(struct omap_dsi_panel *panel, void *framebuffer, enum omap_dis
 		FLD_VAL( bootimg_info.height - 1 , 26, 16);
 	__raw_writel(r, DISPC_GFX_SIZE);
 	__raw_writel(bootimg_info.bg_color, DISPC_DEFAULT_COLOR0);
+
+	if (display_cpr_info.cpr_values_valid) {
+		r = FLD_VAL((0x3FF)&display_cpr_info.cpr_values[0], 31, 22) |
+		    FLD_VAL((0x3FF)&display_cpr_info.cpr_values[1], 20, 11) |
+		    FLD_VAL((0x3FF)&display_cpr_info.cpr_values[2], 9, 0);
+		__raw_writel(r, DISPC_CPR1_COEF_R);
+
+		r = FLD_VAL((0x3FF)&display_cpr_info.cpr_values[3], 31, 22) |
+		    FLD_VAL((0x3FF)&display_cpr_info.cpr_values[4], 20, 11) |
+		    FLD_VAL((0x3FF)&display_cpr_info.cpr_values[5], 9, 0);
+		__raw_writel(r, DISPC_CPR1_COEF_G);
+
+		r = FLD_VAL((0x3FF)&display_cpr_info.cpr_values[6], 31, 22) |
+		    FLD_VAL((0x3FF)&display_cpr_info.cpr_values[7], 20, 11) |
+		    FLD_VAL((0x3FF)&display_cpr_info.cpr_values[8], 9, 0);
+		__raw_writel(r, DISPC_CPR1_COEF_B);
+
+		REG_FLD_MOD(DISPC_CONFIG1, 1, 15, 15);
+	}
 }
 
 void dispc_go(void)

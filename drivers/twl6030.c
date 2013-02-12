@@ -23,10 +23,12 @@
 #ifdef CONFIG_TWL6030
 
 #include <twl6030.h>
-
+#include <common.h>
 #ifdef BOARD_CHARGING
 extern int bq2419x_reset(void);
 #endif
+
+
 
 /* Functions to read and write from TWL6030 */
 static inline int twl6030_i2c_write_u8(u8 chip_no, u8 val, u8 reg)
@@ -278,10 +280,36 @@ int twl6030_vbus_status(u8 *status)
 	return twl6030_i2c_read_u8(TWL6030_CHIP_CHARGER, status, CONTROLLER_STAT1);
 }
 
+void print_poweron_reason(void){
+	
+u32 poweron_reason = RESET_REASON;
+
+printf("Boot reason: (0x%03X)\n", poweron_reason);
+if (poweron_reason & COLD)
+		printf("\tCold boot\n");
+	if (poweron_reason & G_WARM_SW)
+		printf("\tGlobal warm software reset\n");
+	if (poweron_reason & MPU_WDT)
+		printf("\tMPU Watchdog timer reset\n");
+	if (poweron_reason & EXT_WARM)
+		printf("\tExternal warm reset\n");
+	if (poweron_reason & VDD_MPU_VOLT)
+		printf("\tVDD_MPU voltage manager reset\n");
+	if (poweron_reason & VDD_IVA_VOLT)
+		printf("\tVDD_IVA voltage manager reset\n");
+	if (poweron_reason & VDD_CORE_VLOT)
+		printf("\tVDD_CORE voltage manager reset\n");
+	if (poweron_reason & ICEPICK)
+		printf("\tIcePick reset\n");
+	if (poweron_reason & C2C)
+		printf("\tC2C warm reset\n");
+
+}
 void twl6030_power_off(void)
 {
 	u8 value = 0;
 	int err;
+	
         
 #ifdef BOARD_CHARGING
 	bq2419x_reset();
@@ -290,6 +318,8 @@ void twl6030_power_off(void)
 	printf("Powering off!\n");
 
         while(1){
+
+	    print_poweron_reason();
 	    err = twl6030_i2c_read_u8(TWL6030_CHIP_PM, &value, PHOENIX_DEV_ON);
 
 	    if (err) {

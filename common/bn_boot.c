@@ -30,6 +30,11 @@ struct img_info bootimg_info = {
 	.bg_color = 0x0,
 };
 
+struct cpr_info display_cpr_info = {
+	.cpr_values_valid = 0,
+	.cpr_values = {0, 0, 0, 0, 0, 0, 0, 0, 0},
+};
+
 #define char2u16(char_ptr) \
     ((char_ptr)[0] | ((char_ptr)[1] << 8))
 
@@ -144,4 +149,45 @@ int display_mmc_gzip_ppm(int mmc, int part, const char *filename, uint32_t *fb, 
 	}
 
 	return display_ppm(ppm, fb, width, height);
+}
+
+int load_display_cpr(void)
+{
+	char command_buf[256];
+	char cpr_buf[DISPLAYCPR_TOKEN_MAXSIZE];
+	char *cpr_ptr, *end_ptr;
+	int index = 0;
+	int retval = -1;
+	int sum_of_coefs = 0;
+
+	memset(cpr_buf, 0, sizeof(cpr_buf));
+	sprintf(command_buf, "mmcinit 1; fatload mmc 1:5 0x%08x DisplayCPR %d", cpr_buf, DISPLAYCPR_TOKEN_MAXSIZE);
+	if (run_command(command_buf, 0)) {
+		sprintf(command_buf, "mmcinit 1; fatload mmc 1:4 0x%08x devconf/DisplayCPR %d", cpr_buf, DISPLAYCPR_TOKEN_MAXSIZE);
+		if (run_command(command_buf, 0)) {
+			printf("No DisplayCPR found in /bootdata nor /rom/devconf.\n");
+			return retval;
+		}
+	}
+
+	cpr_ptr = strtok(cpr_buf, " ");
+	while (cpr_ptr != NULL  && index < DISPLAYCPR_NUM_VALUES) {
+		display_cpr_info.cpr_values[index] = simple_strtol(cpr_ptr, &end_ptr, 10);
+		if (cpr_ptr == end_ptr) {
+			printf("invalid CPR value [%s]\n", cpr_ptr);
+			return retval;
+		}
+		sum_of_coefs += display_cpr_info.cpr_values[index];
+		index++;
+		cpr_ptr = strtok(NULL, " ");
+	}
+
+	if ((index != 9) || (sum_of_coefs == 0)) {
+		printf("Invalid CPR token: [%s]\n", cpr_buf);
+	} else {
+		display_cpr_info.cpr_values_valid = 1;
+		retval = 0;
+	}
+
+	return retval;
 }

@@ -609,6 +609,22 @@ typedef enum {
 	cooldown,
 	lowbatt_charge
 } ppz_images;
+
+#if defined(CONFIG_OVATION) || defined(CONFIG_HUMMINGBIRD)
+#define RESET_REASON ((*((volatile unsigned int *)(0x4A307B04))) & 0x3FF)
+#define COLD		(1)
+#define G_WARM_SW	(1<<1)
+#define MPU_WDT		(1<<3)
+#define EXT_WARM	(1<<5)
+#define VDD_MPU_VOLT	(1<<6)
+#define VDD_IVA_VOLT	(1<<7)
+#define VDD_CORE_VLOT	(1<<8)
+#define ICEPICK		(1<<9)
+#define C2C		(1<<10)
+
+extern u32 sdram_size_hwid(void);
+extern u8 get_product_id(void);
+#endif
 void pwron_check_switch_off(void);
 void default_image( void );
 void show_image( ppz_images image_name);
