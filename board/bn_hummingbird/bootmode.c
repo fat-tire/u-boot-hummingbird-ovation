@@ -174,6 +174,10 @@ int check_emmc_boot_mode(void)
 				ret_val = EMMC_RECOVERY;
 			}
 
+			if (load_display_cpr()) {
+				printf("failed reading display cpr\n");
+			}
+
 			if (load_display_vendor()) {
 				printf("No display vendor found, rom restore forced.\n");
 				write_bcb(&romrestore_bcb);
