@@ -85,7 +85,7 @@ extern int32_t FB;
 static void set_boot_cmd( int boot_type)
 {
 	char buffer[256];
-	sprintf(buffer, "setenv bootargs ${bootargs} boot.fb=%x", FB);
+	sprintf(buffer, "setenv bootargs ${bootargs} vmalloc=768M init=/init rootwait androidboot.hardware=ovation boot.fb=%x", FB);
 	if ( SD_BOOTIMG == boot_type ) {
 		run_command("setenv bootargs ${sdbootargs}", 0);
 		setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 flashing_boot.img; booti 0x81000000");
