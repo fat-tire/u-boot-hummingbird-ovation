@@ -95,7 +95,15 @@ extern int32_t FB;
 static void set_boot_cmd( int boot_type)
 {
 	char buffer[256];
-	sprintf(buffer, "setenv bootargs ${bootargs} boot.fb=%x", FB);
+	sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird boot.fb=%x", FB);
+	run_command(buffer, 0);
+	if ( EMMC_RECOVERY == boot_type ) {
+		setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.cwm; bootm 0x81000000 0x82000000");
+	} else {
+		setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk; bootm 0x81000000 0x82000000");
+	}
+	setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
+#if 0
 	if ( SD_BOOTIMG == boot_type ) {
 		run_command("setenv bootargs ${sdbootargs}", 0);
 		setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 flashing_boot.img; booti 0x81000000");
@@ -117,6 +125,7 @@ static void set_boot_cmd( int boot_type)
 		setenv ("bootcmd", "booti 0x81000000");
 		setenv ("altbootcmd", "run bootcmd");
 	}
+#endif
 #endif
 }
 
@@ -140,12 +149,14 @@ int check_emmc_boot_mode(void)
 	struct bootloader_message * bcb_ptr;
 
 	//we need to run this again to avoid data abort if reading ppz from mmc 1:5
+#if 0
 	if ( check_fat_file_exists( 0 , 1, "hummingbird_update.zip") ){
 		if ( RESET_REASON != WARM_RESET ){
 			set_recovery_update_bcb();
 			ret_val = EMMC_RECOVERY;
 		}
 	}
+#endif
 
 #ifndef TI_EXTERNAL_BUILD
 	if(!has_checked_bootmode_from_fs) {
@@ -189,8 +200,7 @@ int check_emmc_boot_mode(void)
 	}
 #endif
 
-
-	if ( EMMC_ANDROID == ret_val ) {
+	if ( 1 && EMMC_ANDROID == ret_val ) {
 		u8 pwron = 0;
 		if (twl6030_hw_status(&pwron)) {
 			printf("Failed to read twl6030 hw_status\n");
@@ -239,8 +249,13 @@ int set_boot_mode(void)
 			 * This is only to to allow external builds to boot,
 			 * once security is enabled, this will be pulled out
 			 */
-			ret = SD_UIMAGE;
-			set_boot_cmd( SD_UIMAGE ) ;
+			if (!check_fat_file_exists(0, 1, "ramdisk") &&
+			    check_fat_file_exists(0, 1, "ramdisk.cwm")) {
+			    ret = EMMC_RECOVERY;
+			} else {
+			    ret = check_emmc_boot_mode();
+			}
+			set_boot_cmd( ret ) ;
 		}
 	} else {
 #if 0

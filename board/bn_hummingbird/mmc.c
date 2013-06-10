@@ -300,7 +300,7 @@ int board_late_init(void)
 	    display_init(panel, (void *) FB, fmt);
 
 	    backlight_enable(1);
-	    backlight_set_brightness(0x3f);
+	    backlight_set_brightness(0x80);
 	    panel_has_enabled = 1;
 
 	    if(coolcharger_ppz == COOLCHARGER_SHUTDOWN_COOLDOWN ||
@@ -356,7 +356,7 @@ void show_image(ppz_images image_name)
 	display_init(panel, (void *) FB, fmt);
 
 	backlight_enable(1);
-	backlight_set_brightness(0x3f);
+	backlight_set_brightness(0x80);
 	panel_has_enabled = 1;
 }
 
@@ -373,7 +373,7 @@ void turn_panel_on()
 {
 	if(!panel_has_enabled) {
 		backlight_enable(1);
-		backlight_set_brightness(0x3f);
+		backlight_set_brightness(0x80);
 		panel_has_enabled = 1;
 	}
 }
