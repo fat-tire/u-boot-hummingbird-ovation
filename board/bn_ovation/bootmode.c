@@ -316,6 +316,8 @@ static inline enum boot_action get_boot_action(void)
                 if ((device_flag = read_u_boot_device()) != '1') {
                         if (check_device_image(DEV_SD, "ramdisk"))
                                 return BOOT_HYBRID;
+			else if (check_device_image(DEV_SD, "ramdisk.stock"))
+				return BOOT_SD_ALTERNATE;
                         else
                                 return BOOT_SD_RECOVERY;
                 } else {        // running from emmc or overridden
@@ -347,14 +349,17 @@ static void display_feedback(enum boot_action image)
         switch(image) {
 
         case BOOT_EMMC_NORMAL:
-                lcd_puts("   Loading Stock from EMMC...");
+                lcd_puts("   Loading system from EMMC...");
                 break;
         case BOOT_SD_RECOVERY:
                 lcd_puts("   Loading Recovery from SD...");
                 break;
         case BOOT_HYBRID:
-                lcd_puts(" Loading custom rom from SD...");
+                lcd_puts(" Loading CyanogenMod from SD...");
                 break;
+	case BOOT_SD_ALTERNATE:
+		lcd_puts("   Loading Stock from SD...");
+		break;
 
        // case BOOT_EMMC_ALTBOOT:
          //       lcd_puts(" Loading AltBoot from EMMC...");
@@ -419,9 +424,9 @@ int set_boot_mode(void)
                         return 0;
 
                 case BOOT_SD_ALTERNATE:
-                        sprintf(buffer, "setenv bootargs ${bootargs} androidboot.hardware=ovation boot.fb=%x", FB);
+                        sprintf(buffer, "setenv bootargs ${bootargs} boot.fb=%x", FB);
                         run_command(buffer, 0);
-                        setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.alt; bootm 0x81000000 0x82000000");
+                        setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.stock; bootm 0x81000000 0x82000000");
                         setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
                         display_feedback(BOOT_SD_ALTERNATE);
                         return 0;

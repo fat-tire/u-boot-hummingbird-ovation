@@ -53,7 +53,7 @@
 char *opt_list[NUM_OPTS] = { 
 		" Boot from Internal Storage ",
 		" Boot from SDCARD           ",
-		" Boot SD Alternate ROM      ",
+		" Boot SD Stock              ",
 		" Boot CWM Recovery          ",
 		"                            ",
 		" Default Boot:              ", 
@@ -202,7 +202,7 @@ int do_menu() {
 		valid_opt[BOOT_SD_RECOVERY] = 1;
 	if (check_device_image(DEV_SD, "kernel") && check_device_image(DEV_SD, "ramdisk"))
 		valid_opt[BOOT_HYBRID] = 1;
-	if (check_device_image(DEV_SD, "kernel") && check_device_image(DEV_SD, "ramdisk.alt"))
+	if (check_device_image(DEV_SD, "kernel") && check_device_image(DEV_SD, "ramdisk.stock"))
 		valid_opt[BOOT_SD_ALTERNATE] = 1;
 
 	if (read_u_boot_file("u-boot.device") != 'X') // if that file is there
