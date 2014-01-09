@@ -110,7 +110,7 @@ void set_boot_cmd( int boot_type)
 {
 	char buffer[256];
 	//sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.console=tty0 console=tty0 androidboot.hardware=hummingbird display.vendor=AUO boot.fb=%x", FB);
-	sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
+	sprintf(buffer, "setenv bootargs ${bootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
 
 	run_command(buffer, 0);
 //	if (boot_type == EMMC_RECOVERY) {
@@ -121,11 +121,11 @@ void set_boot_cmd( int boot_type)
 	setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
 #if 0	
 	if ( SD_BOOTIMG == boot_type ) {
-		run_command("setenv bootargs ${sdbootargs}", 0);
+		run_command("setenv bootargs ${bootargs}", 0);
 		setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 flashing_boot.img; booti 0x81000000");
 		setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
 	} else if ( SD_UIMAGE == boot_type ){
-		run_command("setenv bootargs ${sdbootargs}", 0);
+		run_command("setenv bootargs ${bootargs}", 0);
 		setenv ("bootcmd", "mmcinit 0; fatload mmc 0 0x80000000 uImage; bootm 0x80000000");
 	} else if ( EMMC_ANDROID == boot_type ) {
 		run_command("setenv bootargs ${bootargs} display.vendor=${display_vendor}", 0);
@@ -456,7 +456,7 @@ int set_boot_mode(void)
                 switch(action) {
         	case BOOT_SD_RECOVERY:
             		//setenv ("bootcmd", "setenv setbootargs setenv bootargs ${sdbootargs}; run setbootargs; mmcinit 0; fatload mmc 0:1 0x81000000 recovery.img; booti 0x81000000");
-			sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x androidboot.serialno=${serialnum}", FB);
+			sprintf(buffer, "setenv bootargs ${bootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x androidboot.serialno=${serialnum}", FB);
         		run_command(buffer, 0);
 			setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.cwm; bootm 0x81000000 0x82000000");
             		setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
@@ -464,7 +464,7 @@ int set_boot_mode(void)
             		return 0;
 
                 case BOOT_HYBRID:
-			sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x androidboot.serialno=${serialnum}", FB);
+			sprintf(buffer, "setenv bootargs ${bootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x androidboot.serialno=${serialnum}", FB);
         		run_command(buffer, 0);
                 	setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk; bootm 0x81000000 0x82000000");
                         setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
@@ -472,7 +472,7 @@ int set_boot_mode(void)
                         return 0;
                 //actually, boot from boot+512K -- thanks bauwks!
                 case BOOT_EMMC_NORMAL:
-			//sprintf(buffer, "setenv bootargs ${bootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
+			//sprintf(buffer, "setenv bootargs ${bootargs} androidboot.hardware=hummingbird androidboot.serialno=${serialnum} display.vendor=${display_vendor} boot.fb=%x", FB);
 			sprintf(buffer, "setenv bootargs ${bootargs} display.vendor=${display_vendor} boot.fb=%x", FB);
         		run_command(buffer, 0);
                         setenv("bootcmd", "mmcinit 1; booti mmc1");
@@ -480,7 +480,7 @@ int set_boot_mode(void)
                         return 0;
 
                 case BOOT_SD_ALTERNATE:
-			sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
+			sprintf(buffer, "setenv bootargs ${bootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
         		run_command(buffer, 0);
                 	setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.alt; bootm 0x81000000 0x82000000");
                         setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd

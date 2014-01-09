@@ -1440,6 +1440,8 @@ static unsigned char boothdr[512];
 
 #define LIBERATED_LOADER "Green Loader"
 
+#define JUMP_TO_LIBERATED_LOADER 1
+
 /* booti <addr> [ mmc0 | mmc1 [ <partition> ] ] */
 int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
@@ -1493,9 +1495,11 @@ again:
 		/* Let's see if it's a liberated EMMC image */
 		if (strcmp(hdr->cmdline, LIBERATED_LOADER) == 0) {
 			printf("Found liberated loader, trying again\n");
-			pte->start += 2048; // Yes, real payload at 1M offset.
 			liberated = 1;
+#if 0
+			pte->start += 2048; // Yes, real payload at 1M offset.
 			goto again;
+#endif
 		}
 
 		sector = pte->start + (hdr->page_size / 512);
@@ -1504,6 +1508,31 @@ again:
 			printf("booti: failed to read kernel\n");
 			goto fail;
 		}
+
+		// Superhack: Since we do not know if it's a liberated
+		// stock kernel or liberated CM kernel and they need different
+		// kernel options (that I still stupidly don't incude in image
+		// but will hopefully fix soon, we just jump into the liberated
+		// bootloader in this case and let it finish the boot at the
+		// expense of some additional delays.
+#if JUMP_TO_LIBERATED_LOADER
+#include <asm/arch/sys_info.h>
+		if (liberated) {
+			void (*func)(void) = (void*)0x80d80000;
+			u32 boot_dev = __raw_readl(0x4A326000) & ~0xff;
+
+			// Update bootdev to emmc
+			boot_dev |= BOOT_DEVICE_EMMC;
+
+			printf("About to update bootdevice\n");
+			__raw_writew(boot_dev, 0x4A326000);
+
+			printf("Jumping to liberated loader\n");
+			func();
+
+			printf("Returned from liberated loader? Huh?\n");
+		}
+#endif
 
 		sector += ALIGN(hdr->kernel_size, hdr->page_size) / 512;
 		if (mmc_read(mmcc, sector, (void*) (((u8*)hdr->ramdisk_addr - (liberated?0:KERNEL_OFFSET) )),
