@@ -341,7 +341,7 @@ static inline enum boot_action get_boot_action(void)
         }
 
         // give them time to press the button(s)
-        udelay(3000000);
+        udelay(1500000);
         if ((gpio_read(HOME_BUTTON) == 0) &&
                 (gpio_read(POWER_BUTTON) == 1)) {  // BOTH KEYS STILL HELD FROM UB1
                 if (running_from_sd()) {
@@ -472,10 +472,10 @@ int set_boot_mode(void)
                         return 0;
                 //actually, boot from boot+512K -- thanks bauwks!
                 case BOOT_EMMC_NORMAL:
-			printf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
+			//sprintf(buffer, "setenv bootargs ${bootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
+			sprintf(buffer, "setenv bootargs ${bootargs} display.vendor=${display_vendor} boot.fb=%x", FB);
         		run_command(buffer, 0);
-                	setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.stock; bootm 0x81000000 0x82000000");
-                        //setenv("bootcmd", "mmcinit 1; booti mmc1");
+                        setenv("bootcmd", "mmcinit 1; booti mmc1");
                         display_feedback(BOOT_EMMC_NORMAL);
                         return 0;
 

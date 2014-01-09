@@ -249,10 +249,13 @@ int board_late_init(void)
 	show_image(boot);
 	
 	lcd_console_init();
+
+	// Superhack (must read sdcard first to init the part table
+	run_command("mmcinit 0; fatload mmc 0:1 0x80000000 stuff 4", 0);
 	
 	bootmode = set_boot_mode();
 	
-	return EMMC_ANDROID;
+	return bootmode;
 }
 
 void show_image(ppz_images image_name)

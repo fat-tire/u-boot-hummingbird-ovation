@@ -160,6 +160,9 @@ int board_late_init(void)
 
 	lcd_console_init();
 
+	// Superhack (must read sdcard first to init the part table
+	run_command("mmcinit 0; fatload mmc 0:1 0x80000000 stuff 4", 0);
+
 	int bootmode = set_boot_mode();
 
 	return bootmode;

@@ -1438,6 +1438,8 @@ static unsigned char boothdr[512];
 
 #define ALIGN(n,pagesz) ((n + (pagesz - 1)) & (~(pagesz - 1)))
 
+#define LIBERATED_LOADER "Green Loader"
+
 /* booti <addr> [ mmc0 | mmc1 [ <partition> ] ] */
 int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
@@ -1448,8 +1450,7 @@ int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 	static char device_serial[38];
 	unsigned int val[4] = { 0 };
 	unsigned int reg = 0;
-
-	image_type image;
+	int liberated = 0;
 
 	if (argc < 2)
 		return -1;
@@ -1462,15 +1463,12 @@ int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 		addr = simple_strtoul(argv[1], NULL, 16);
 	}
 
-	image.image = 3;
-	image.val = 99;
-
 	if (argc > 2)
 		ptn = argv[2];
 
 	pmic_set_vpp();
 
-	if (mmcc != -1) {
+//	if (mmcc != -1) {
 #if (CONFIG_MMC)
 		struct fastboot_ptentry *pte;
 		unsigned sector;
@@ -1481,6 +1479,7 @@ int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 			goto fail;
 		}
 
+again:
 		if (mmc_read(mmcc, pte->start, (void*) hdr, 512) != 1) {
 			printf("booti: mmc failed to read bootimg header\n");
 			goto fail;
@@ -1491,11 +1490,13 @@ int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 			goto fail;
 		}
 
-		if( ( (hdr->kernel_addr + hdr->kernel_size) > 0x80E80000 ) || ( hdr->ramdisk_addr < 0x80EC0000 ) ) {
-			hdr->kernel_addr = 0;
-			hdr->ramdisk_addr = 0;
+		/* Let's see if it's a liberated EMMC image */
+		if (strcmp(hdr->cmdline, LIBERATED_LOADER) == 0) {
+			printf("Found liberated loader, trying again\n");
+			pte->start += 2048; // Yes, real payload at 1M offset.
+			liberated = 1;
+			goto again;
 		}
-
 
 		sector = pte->start + (hdr->page_size / 512);
 		if (mmc_read(mmcc, sector, (void*) hdr->kernel_addr,
@@ -1505,7 +1506,7 @@ int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 		}
 
 		sector += ALIGN(hdr->kernel_size, hdr->page_size) / 512;
-		if (mmc_read(mmcc, sector, (void*) (((u8*)hdr->ramdisk_addr - KERNEL_OFFSET )),
+		if (mmc_read(mmcc, sector, (void*) (((u8*)hdr->ramdisk_addr - (liberated?0:KERNEL_OFFSET) )),
 			     hdr->ramdisk_size) != 1) {
 			printf("booti: failed to read ramdisk\n");
 			goto fail;
@@ -1513,6 +1514,7 @@ int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 #else
 		return -1;
 #endif
+#if 0
 	} else {
 		unsigned kaddr, raddr;
 
@@ -1540,29 +1542,12 @@ int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 		memmove((void*) (hdr->kernel_addr-KERNEL_OFFSET), kaddr, hdr->kernel_size);
 
 	}
+#endif
 
-	if ( mmcc != -1 ) {
-		/* Incase or raw partiton, kernel start is at kernel_addr+KERNEL_OFFSET */
-		image.data = hdr->kernel_addr;
+	if ( !liberated ) {
 		hdr->kernel_addr = (void*) ((u8*) ( hdr->kernel_addr ) + KERNEL_OFFSET );
-	} else {
-		/* Incase of fat partition, kernel start is at kernel_addr */
-		image.data = (hdr->kernel_addr-KERNEL_OFFSET);
+		hdr->ramdisk_size -= KERNEL_OFFSET;
 	}
-	SEC_ENTRY_Std_Ppa_Call ( PPA_SERV_HAL_BN_CHK , 1 , &image );
-	if ( image.val == 0 ) {
-		printf("kernel   @ %08x (%d)\n", hdr->kernel_addr, hdr->kernel_size);
-	} else {
-		printf(" kernel image has been corrupted, cannot boot\n");
-		do_reset (NULL, 0, 0, NULL);
-	}
-	image.image = 4;
-	image.val = 99;
-	image.data = ((u8*)( hdr->ramdisk_addr - KERNEL_OFFSET ) );
-	hdr->ramdisk_size -= KERNEL_OFFSET;
-	SEC_ENTRY_Std_Ppa_Call ( PPA_SERV_HAL_BN_CHK , 1 , &image );
-	if ( image.val == 0 ) {
-		printf("ramdisk  @ %08x (%d)\n", hdr->ramdisk_addr, hdr->ramdisk_size);
 
 #if (CONFIG_OMAP4_ANDROID_CMD_LINE)
 		char uboot_version_string[128] = U_BOOT_VERSION;
@@ -1585,11 +1570,8 @@ int do_booti (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 			strcat(hdr->cmdline, boot_str);
 #endif
 
+printf("About to jump to linux, addr %x\n", hdr->kernel_addr);
 		do_booti_linux(hdr);
-	} else {
-		printf(" Ramdisk image has been corrupted , cannot boot\n");
-		do_reset (NULL, 0, 0, NULL);
-	}
 
 	puts ("booti: Control returned to monitor - resetting...\n");
 	do_reset (cmdtp, flag, argc, argv);

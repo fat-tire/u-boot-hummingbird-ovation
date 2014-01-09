@@ -142,6 +142,10 @@ int board_init(void)
 
 	gpmc_init();
 
+	sr32(MUX_FIELD(CONTROL_CORE_PAD0_KPD_COL5_PAD1_KPD_COL0), 16, 16, (M3));
+	sr32(MUX_FIELD(CONTROL_CORE_PAD0_KPD_ROW5_PAD1_KPD_ROW0), 16, 16, (OMAP_PULL_ENA | OMAP_PULL_UP | M3 | OMAP_INPUT_EN));
+	sr32(MUX_FIELD(CONTROL_CORE_PAD0_KPD_ROW1_PAD1_KPD_ROW2), 0, 16, (OMAP_PULL_ENA | OMAP_PULL_UP | M3 | OMAP_INPUT_EN));
+
 #if 0 /* No eMMC env partition for now */
 	/* Intializing env functional pointers with eMMC */
 	boot_env_get_char_spec = mmc_env_get_char_spec;

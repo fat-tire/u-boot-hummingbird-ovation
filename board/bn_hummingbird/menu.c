@@ -49,14 +49,14 @@
 #define VOLUP_KEY (1 << 2)
 #define VOLDOWN_KEY (1 << 3)
 
-#define NUM_OPTS		INVALID  //number of boot options
+#define NUM_OPTS		8  //number of boot options
 char *opt_list[NUM_OPTS] = { 
-		" Boot from stock BN ROM   ",
-		" Boot from CM/custom ROM  ", 
-		" Boot SD Alternate ROM    ",
-		" Boot CWM Recovery        ",
-		"                          ",
-		" Default Boot:            ", 
+		" Boot from Internal Storage ",
+		" Boot from SDCARD           ",
+		" Boot SD Alternate ROM      ",
+		" Boot CWM Recovery          ",
+		"                            ",
+		" Default Boot:              ", 
 		"       Device: ", 
 		"        Image: ", };
 
@@ -72,10 +72,10 @@ unsigned char get_keys_pressed(unsigned char* key) {
 		(*key) |= N_KEY;
 	if (gpio_read(POWER_BUTTON) == 1)
 		(*key) |= POWER_KEY;
-//	if (gpio_read(ROW0) == 0)
-//		(*key) |= VOLUP_KEY;
-//	if (gpio_read(ROW1) == 0)
-//		(*key) |= VOLDOWN_KEY;
+	if (gpio_read(ROW0) == 0)
+		(*key) |= VOLUP_KEY;
+	if (gpio_read(ROW1) == 0)
+		(*key) |= VOLDOWN_KEY;
 	return (*key);
 }
 
@@ -195,11 +195,11 @@ int do_menu() {
 		lcd_puts("Error: Failed to read twl6030 hw_status\n");
 	}
 
+	// Booting from EMMC is always valid
+	valid_opt[BOOT_EMMC_NORMAL] = 1;
 	
 	if (check_device_image(DEV_SD, "kernel") && check_device_image(DEV_SD, "ramdisk.cwm"))
 		valid_opt[BOOT_SD_RECOVERY] = 1;
-	if (check_device_image(DEV_SD, "kernel") && check_device_image(DEV_SD, "ramdisk.stock"))
-		valid_opt[BOOT_EMMC_NORMAL] = 1;
 	if (check_device_image(DEV_SD, "kernel") && check_device_image(DEV_SD, "ramdisk"))
 		valid_opt[BOOT_HYBRID] = 1;
 	if (check_device_image(DEV_SD, "kernel") && check_device_image(DEV_SD, "ramdisk.alt"))
@@ -223,12 +223,14 @@ int do_menu() {
 	}
 
 	lcd_console_setpos(MENUTOP + NUM_OPTS + 9, INDENT-9);
-	lcd_puts("    Press \"^\" to move to the next item");
+	lcd_puts("Press \"Volume down\" to move to the next item");
 	lcd_console_setpos(MENUTOP + NUM_OPTS + 10, INDENT-9);
-	lcd_puts("   Long press \"^\"  to select/toggle item");
+	lcd_puts("Press \"Volume up\" to to move to the previous item");
+	lcd_console_setpos(MENUTOP + NUM_OPTS + 11, INDENT);
+	lcd_puts("Press \"^\" to select");
 	lcd_console_setpos(43, 0);
-	lcd_puts1("    Menu by j4mm3r, fattire, tonsofquestions, mik_os, Rebellos, HD, bokbokan.\n"
-			 "    ** EXPERIMENTAL ** (" __DATE__ " " __TIME__ ")");
+	lcd_puts1("Menu by j4mm3r, fattire, tonsofquestions, mik_os, Rebellos, HD, bokbokan, green.\n"
+		 "    ** EXPERIMENTAL ** (" __DATE__ " " __TIME__ ")");
 
 	cursor = BOOT_SD_RECOVERY;
 
@@ -239,7 +241,6 @@ int do_menu() {
 		udelay(RESET_TICK);
 	} while (get_keys_pressed(&key)); // wait for release
 
-	int selected = 0;
 	do {
 		get_keys_pressed(&key);
 
@@ -249,33 +250,20 @@ int do_menu() {
 				readl(CM_L4PER_GPIO2_CLKCTRL), readl(CM_L4PER_CLKSTCTRL));
 
 #endif
-		if (key & N_KEY) // button is pressed
+		if (key & VOLDOWN_KEY) // button is pressed
 		{
-
-			int count = 0;
-			do {
-				udelay(RESET_TICK);
-				count++;
-				if (count > 200) {
-					selected = 1;
-					break;
-				}
-			} while (get_keys_pressed(&key)); //wait for release
-			
-			if (!selected) {
 			// unhighlight current option
 			highlight_boot_line(cursor, HIGHLIGHT_NONE);
 			while (!valid_opt[++cursor] || cursor >= NUM_OPTS) {
 				if (cursor >= NUM_OPTS)
 					cursor = -1;
-
 			}
+
 			// highlight new option
 			highlight_boot_line(cursor, HIGHLIGHT_CYAN);
-			}
-			//do {
-			//	udelay(RESET_TICK);
-			//} while (get_keys_pressed(&key)); //wait for release
+			do {
+				udelay(RESET_TICK);
+			} while (get_keys_pressed(&key)); //wait for release
 
 		}
 
@@ -296,7 +284,7 @@ int do_menu() {
 
 		}
 
-		if (selected && (cursor == CHANGE_BOOT_DEV)) { //selected modify device
+		if ((key & N_KEY) && (cursor == CHANGE_BOOT_DEV)) { //selected modify device
 			const char* file = "u-boot.device";
 			if (read_u_boot_file(file) == '1') {
 				write_u_boot_file(file, '0');
@@ -305,13 +293,12 @@ int do_menu() {
 			}
 			udelay(RESET_TICK);
 			highlight_boot_line(cursor, HIGHLIGHT_GREEN);
-			selected = 0;
-		//	do {
-		//		udelay(RESET_TICK);
-		//	} while (get_keys_pressed(&key)); //wait for release
+			do {
+				udelay(RESET_TICK);
+			} while (get_keys_pressed(&key)); //wait for release
 		}
 
-		if (selected && (cursor == CHANGE_BOOT_IMG)) { //selected modify image
+		if ((key & N_KEY) && (cursor == CHANGE_BOOT_IMG)) { //selected modify image
 			const char* file = "u-boot.altboot";
 			if (read_u_boot_file(file) == '1') {
 				write_u_boot_file(file, '0');
@@ -320,13 +307,12 @@ int do_menu() {
 			}
 			udelay(RESET_TICK);
 			highlight_boot_line(cursor, HIGHLIGHT_GREEN);
-			selected = 0;
-	//		do {
-	//			udelay(RESET_TICK);
-	//		} while (get_keys_pressed(&key)); //wait for release
+			do {
+				udelay(RESET_TICK);
+			} while (get_keys_pressed(&key)); //wait for release
 		}
 		udelay(RESET_TICK);
-	} while (!selected || (cursor == CHANGE_BOOT_DEV) || (cursor
+	} while (!(key & N_KEY) || (cursor == CHANGE_BOOT_DEV) || (cursor
 			== CHANGE_BOOT_IMG));
 
 	highlight_boot_line(cursor, HIGHLIGHT_GREEN);
