@@ -39,7 +39,7 @@ struct cpr_info display_cpr_info = {
     ((char_ptr)[0] | ((char_ptr)[1] << 8))
 
 static char * next_line(char *line);
-void display_rle(uint16_t const *start, uint16_t *fb, int width, int height)
+void display_rle(uint16_t const *start, uint16_t *fb, int pwidth, int pheight)
 {
 	uint16_t i, j;
 	register uint16_t count;
@@ -47,19 +47,24 @@ void display_rle(uint16_t const *start, uint16_t *fb, int width, int height)
 
 	char * line = (char *) start;
 
-	bootimg_info.width = simple_strtoul(line, &line, 10);
+	int width = simple_strtoul(line, &line, 10);
 	line = next_line((char *) line);
-	bootimg_info.height = simple_strtoul(line, &line, 10);
+	int height = simple_strtoul(line, &line, 10);
 	line = next_line((char *) line);
 
 	line++; // skip the extra carriage return
 
 	count = char2u16(line);
 	color = char2u16(&(line[2]));
-	bootimg_info.bg_color = color;
+	//bootimg_info.bg_color = color;
 
-	for (i = 0; i < bootimg_info.height; ++i) {
-		for (j = 0; j < bootimg_info.width; ++j) {
+	if (pheight > pwidth)
+		fb += (pheight - 550) * pwidth + (pwidth - width)/2;
+	else
+		fb += (pheight - height)/2 * pwidth + 400;
+
+	for (i = 0; i < height; ++i) {
+		for (j = 0; j < width; ++j) {
 			*fb++ = color;
 			--count;
 			if (count == 0) {
@@ -68,6 +73,7 @@ void display_rle(uint16_t const *start, uint16_t *fb, int width, int height)
 				color = char2u16(&(line[2]));
 			}
 		}
+		fb += pwidth - width;
 	}
 }
 

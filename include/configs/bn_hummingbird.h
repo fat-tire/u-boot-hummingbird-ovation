@@ -193,7 +193,7 @@
 // bootargs are set in device/ti/$PRODUCT/BoardConfig.mk
 #define CONFIG_BOOTARGS stringify(BOARD_KERNEL_CMDLINE)
 #define CONFIG_EXTRA_ENV_SETTINGS \
-	"sdbootargs=" stringify(BOARD_KERNEL_CMDLINE) " vmalloc=768M init=/init rootwait omap_wdt.timer_margin=20" "\0"
+	"sdbootargs=" stringify(BOARD_KERNEL_CMDLINE) " root=/dev/mmcblk1p2 rw" "\0"
 
 #define CONFIG_BOOTCOMMAND "booti mmc1"
 #define CONFIG_OMAP4_ANDROID_CMD_LINE 1

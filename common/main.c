@@ -505,7 +505,8 @@ void main_loop (void)
 			reset_cmd_timeout();
 		}
 #endif
-		len = readline (CFG_PROMPT);
+		//len = readline (CFG_PROMPT);
+		len = -2;
 
 		flag = 0;	/* assume no special flags for now */
 		if (len > 0)

@@ -23,7 +23,7 @@ include $(TOPDIR)/config.mk
 
 LIB	= lib$(BOARD).a
 
-OBJS	:= bn_ovation.o mmc.o bootmode.o boot.o lowbatt_charge.o
+OBJS	:= bn_ovation.o mmc.o bootmode.o boot.o console.o menu.o
 
 CPPFLAGS += BN_OVATION
 

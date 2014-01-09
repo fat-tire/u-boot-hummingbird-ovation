@@ -44,7 +44,6 @@
   */
 #define CONFIG_BOARD_PRODUCT_TYPE   0x03
 
-#define BOARD_CHARGING		1
 #define BOARD_LATE_INIT 1
 #define CONFIG_BOARD_REVISION	1
 #ifndef TI_EXTERNAL_BUILD
@@ -173,10 +172,10 @@
 	"bootcmd=go 0x80008000\0"
 #else
 #define CONFIG_BOOTDELAY         0
-#define CONFIG_ZERO_BOOTDELAY_CHECK     /* check for keypress on bootdelay==0 */
+//#define CONFIG_ZERO_BOOTDELAY_CHECK     /* check for keypress on bootdelay==0 */
 #endif /*CONFIG_4430ZEBU */
 
-#define CONFIG_AUTOBOOT_KEYED
+//#define CONFIG_AUTOBOOT_KEYED
 #define CONFIG_AUTOBOOT_PROMPT         "Autobooting in %d seconds, " \
                                        "press <SPACE> to stop...\n"
 #define CONFIG_AUTOBOOT_STOP_STR       " "

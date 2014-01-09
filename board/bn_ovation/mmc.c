@@ -34,6 +34,8 @@
 #include <omap4_dsi.h>
 #include <bn_boot.h>
 
+#include "console.h"
+
 static const struct efi_partition_info partitions[] = {
 	/* name       start_kb    size_kb */
 	{ "xloader",       128,       128 }, /* xloader must start at 128 KB */
@@ -136,7 +138,7 @@ extern uint16_t const _binary_lowbatt_charge_rle_start[];
 
 uint32_t FB = 0xb2200000;
 
-int panel_has_enabled = 0;
+int panel_has_enabled = 1;
 int boot_displayed =0;
 void disable_panel_backlight(void){
 
@@ -146,85 +148,19 @@ void disable_panel_backlight(void){
 	     backlight_enable(0);
      }
 }
+
+extern struct img_info bootimg_info;
+
 int board_late_init(void)
 {
+
+	show_image(boot);
+
+	load_serial_num();
+
+	lcd_console_init();
+
 	int bootmode = set_boot_mode();
-	int display_painted =0; /* boot */
-	enum omap_dispc_format fmt = OMAP_XRGB888_FMT;
-	enum coolcharger_ppz_t coolcharger_ppz = get_coolcharger_ppz();
-
-	if(coolcharger_ppz == COOLCHARGER_SHUTDOWN_NOACTION)
-		return 0;
-	else if(coolcharger_ppz == COOLCHARGER_INITONLY) {
-		if(!panel_has_enabled) {
-			fmt = OMAP_RGB565_FMT;
-			memset((void *) FB, 0, (panel.xres * 2 * panel.yres));
-			display_init(&panel, (void *) FB, fmt);
-		}
-		return 0;
-	}
-
-
-	switch(bootmode) {
-	case EMMC_ANDROID:
-		switch(coolcharger_ppz) {
-		case COOLCHARGER_DISABLE:
-			display_painted = 1;
-			break;
-		case COOLCHARGER_SHUTDOWN_COOLDOWN:
-		case COOLCHARGER_SHUTDOWN_WARMUP:
-			//if we have the warm up image, we can use it.
-			disable_panel_backlight();
-			display_mmc_gzip_ppm(1, 5, "cooldown.ppz", (uint32_t *) FB, panel.xres, panel.yres);
-			break;
-		}
-
-		break;
-	case EMMC_RECOVERY:
-		if(boot_cooldown_charger_mode()) {
-			disable_panel_backlight();
-			switch(coolcharger_ppz) {
-			case COOLCHARGER_COOLDOWN_MODE:
-				display_mmc_gzip_ppm(1, 5, "cooldown.ppz", (uint32_t *) FB, panel.xres, panel.yres);
-				break;
-			case COOLCHARGER_CHARGER_MODE:
-				fmt = OMAP_RGB565_FMT;
-				display_rle(_binary_lowbatt_charge_rle_start, (uint16_t *) FB, panel.xres, panel.yres);
-				break;
-			}
-		}
-		else {
-			if (!panel_has_enabled) /* recovery image is same as boot */
-				show_image(boot);
-
-			display_painted = 1;
-		}
-		break;
-	case SD_UIMAGE:
-	case SD_BOOTIMG:
-	case USB_BOOTIMG:
-	default:
-		/* if we use PIC SD card to reflash and the SoC < BOOT_ANDROID
-		 * the show_image will not be called. */
-		if(!panel_has_enabled)
-			show_image(boot);
-
-		display_painted = 1;
-		break;
-	}
-
-    if (display_painted == 0) {
-	    panel_enable(1);
-	    display_init(&panel, (void *) FB, fmt);
-
-	    backlight_enable(1);
-	    backlight_set_brightness(0xc8);
-	    panel_has_enabled = 1;
-
-	    if(coolcharger_ppz == COOLCHARGER_SHUTDOWN_COOLDOWN ||
-	       coolcharger_ppz == COOLCHARGER_SHUTDOWN_WARMUP)
-		    udelay(3000000);
-	}
 
 	return bootmode;
 }
@@ -234,37 +170,22 @@ void show_image(ppz_images image_name)
 	int fallback = 1;
 	enum omap_dispc_format fmt = OMAP_XRGB888_FMT;
 
-	if(panel_has_enabled) {
-		panel_enable(0);
-		backlight_enable(0);
-	}
+	backlight_set_brightness(0x0);
+	panel_enable(0);
+	backlight_enable(0);
+	memset(FB, 0, panel.xres * panel.yres * 2);
+	display_rle(_binary_boot_rle_start, (uint16_t *) FB, panel.xres, panel.yres);
 
-	switch (image_name) {
-		case boot:
-			fmt = OMAP_RGB565_FMT;
-			display_rle(_binary_boot_rle_start, (uint16_t *) FB, panel.xres, panel.yres);
-			break;
-		case lowbatt_charge:
-			fmt = OMAP_RGB565_FMT;
-			display_rle(_binary_lowbatt_charge_rle_start, (uint16_t *) FB, panel.xres, panel.yres);
-			break;
-		case connect_charge:
-			display_mmc_gzip_ppm(1, 5, "connect_charge.ppz", (uint32_t *) FB, panel.xres, panel.yres);
-			break;
-		case cooldown:
-			display_mmc_gzip_ppm(1, 5, "cooldown.ppz", (uint32_t *) FB, panel.xres, panel.yres);
-			break;
-		default:
-			return -1;
-	}
+	bootimg_info.width = panel.xres;
+	bootimg_info.height = panel.yres;
+	bootimg_info.bg_color = 0;
 
-
+	fmt = OMAP_RGB565_FMT;
 	panel_enable(1);
 	display_init(&panel, (void *) FB, fmt);
 
 	backlight_enable(1);
-	backlight_set_brightness(0xc8);
-	panel_has_enabled = 1;
+	backlight_set_brightness(0x3f);
 }
 
 void turn_panel_off()
@@ -280,7 +201,7 @@ void turn_panel_on()
 {
 	if(!panel_has_enabled) {
 		backlight_enable(1);
-		backlight_set_brightness(0xc8);
+		backlight_set_brightness(0x3f);
 		panel_has_enabled = 1;
 	}
 }

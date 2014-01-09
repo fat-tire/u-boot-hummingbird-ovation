@@ -25,6 +25,7 @@ u-boot
 u-boot.bin
 u-boot.map
 u-boot.srec
+uImage
 System.map
 examples/hello_world
 examples/hello_world.bin
