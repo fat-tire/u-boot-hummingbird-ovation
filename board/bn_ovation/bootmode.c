@@ -85,7 +85,9 @@ extern int32_t FB;
 static void set_boot_cmd( int boot_type)
 {
 	char buffer[256];
-	sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=ovation boot.fb=%x", FB);
+	char *die_id = getenv("dieid#");
+
+	sprintf(buffer, "setenv bootargs ${bootargs} androidboot.hardware=ovation androidboot.serialno=%s boot.fb=%x", die_id, FB);
 
 	run_command(buffer, 0);
 	if ( EMMC_RECOVERY == boot_type ) {
@@ -230,6 +232,7 @@ int set_boot_mode(void)
 			 */
 			if (!check_fat_file_exists(0, 1, "ramdisk") &&
 			    check_fat_file_exists(0, 1, "ramdisk.cwm")) {
+				check_emmc_boot_mode();
 				ret = EMMC_RECOVERY;
 			} else {
 				ret = check_emmc_boot_mode();
