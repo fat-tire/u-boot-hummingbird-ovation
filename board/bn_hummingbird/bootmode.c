@@ -5,6 +5,9 @@
 #include <twl6030.h>
 #include <bn_boot.h>
 
+#include "console.h"
+#include "menu.h"
+
 #define BN_BOOTLIMIT     8
 #define RESET_REASON ( ( * ( (volatile unsigned int *) ( 0x4A307B04 ) ) ) & 0x3 )
 #define WARM_RESET ( 1 << 1 )
@@ -41,7 +44,7 @@ static const struct bootloader_message master_clear_bcb = {
 	.recovery = "recovery\n--wipe_data_ui\n",
 };
 
-static inline int load_serial_num(void)
+inline int load_serial_num(void)
 {
 	memset((void*)0x81000000, 0, 32);
 	if (!run_command("mmcinit 1; fatload mmc 1:4 0x81000000 devconf/DeviceId 31", 0)) {
@@ -53,7 +56,7 @@ static inline int load_serial_num(void)
 	return -1;
 }
 
-static inline int load_display_vendor(void)
+inline int load_display_vendor(void)
 {
 	memset((void*)0x81000000, 0, 51);
 	if (!run_command("mmcinit 1; fatload mmc 1:4 0x81000000 devconf/DisplayVendor 50", 0)) {
@@ -92,10 +95,31 @@ static int check_fat_file_exists(int slot , int partition, char * file) {
 }
 
 extern int32_t FB;
-static void set_boot_cmd( int boot_type)
+static void set_sd_boot() {
+
+	char buffer[256];
+	//sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=AUO boot.fb=%x", FB);
+	sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
+
+	run_command(buffer, 0);
+	setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk; bootm 0x81000000 0x82000000");
+	setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
+}
+
+void set_boot_cmd( int boot_type)
 {
 	char buffer[256];
-	sprintf(buffer, "setenv bootargs ${bootargs} boot.fb=%x", FB);
+	//sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.console=tty0 console=tty0 androidboot.hardware=hummingbird display.vendor=AUO boot.fb=%x", FB);
+	sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
+
+	run_command(buffer, 0);
+//	if (boot_type == EMMC_RECOVERY) {
+//		setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.cwm; bootm 0x81000000 0x82000000");
+//	} else {
+		setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.hybrid; bootm 0x81000000 0x82000000");
+//	}
+	setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
+#if 0	
 	if ( SD_BOOTIMG == boot_type ) {
 		run_command("setenv bootargs ${sdbootargs}", 0);
 		setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 flashing_boot.img; booti 0x81000000");
@@ -111,6 +135,7 @@ static void set_boot_cmd( int boot_type)
 		run_command("setenv bootargs ${bootargs} display.vendor=${display_vendor}", 0);
 		setenv("bootcmd", "mmcinit 1; booti mmc1 recovery");
 	}
+
 #ifdef CONFIG_USBBOOT
 	else if (USB_BOOTIMG == boot_type) { // device boot from USB, use a simple args
 		setenv ("bootargs","androidboot.console=ttyO0 console=ttyO0,115200n8 init=/init rootwait");
@@ -118,6 +143,19 @@ static void set_boot_cmd( int boot_type)
 		setenv ("altbootcmd", "run bootcmd");
 	}
 #endif
+#endif
+}
+
+static void clear_bcb(void)
+{
+	static struct bootloader_message bcb = {
+		.command = "",
+		.status = "",
+		.recovery = "",
+	};
+
+	write_bcb(&bcb);
+	return;
 }
 
 static void set_recovery_update_bcb(void)
@@ -140,12 +178,14 @@ int check_emmc_boot_mode(void)
 	struct bootloader_message * bcb_ptr;
 
 	//we need to run this again to avoid data abort if reading ppz from mmc 1:5
+#if 0
 	if ( check_fat_file_exists( 0 , 1, "hummingbird_update.zip") ){
 		if ( RESET_REASON != WARM_RESET ){
 			set_recovery_update_bcb();
 			ret_val = EMMC_RECOVERY;
 		}
 	}
+#endif
 
 #ifndef TI_EXTERNAL_BUILD
 	if(!has_checked_bootmode_from_fs) {
@@ -172,10 +212,6 @@ int check_emmc_boot_mode(void)
 
 				printf("Booting into recovery\n");
 				ret_val = EMMC_RECOVERY;
-			}
-
-			if (load_display_cpr()) {
-				printf("failed reading display cpr\n");
 			}
 
 			if (load_display_vendor()) {
@@ -214,23 +250,266 @@ int check_emmc_boot_mode(void)
 	return ret_val;
 }
 
+
+static inline int running_from_sd() {
+
+	char boot_dev_name[8];
+	return get_boot_device(boot_dev_name) == BOOT_DEVICE_SD;
+}
+
+// Shared sprintf buffer for fatsave
+static char buf[64];
+static char device;
+
+inline char read_u_boot_clearbc(void)
+{
+        sprintf(buf, "mmcinit 1; fatload mmc 1:5 0x%08x u-boot.clearbc 1", &device);
+        if (run_command(buf, 0)) {  //no such file
+                return 'X'; // this is going to mean no such file, or I guess the file could have 'X'...
+        } else {
+        return device;
+        }
+}
+
+inline char read_u_boot_device(void)
+{
+        sprintf(buf, "mmcinit 0; fatload mmc 0:1 0x%08x u-boot.device 1", &device);
+        if (run_command(buf, 0)) {  //no such file
+                return 'X'; // this is going to mean no such file, or I guess the file could have 'X'...
+        } else {
+        return device;
+        }
+}
+
+inline char read_u_boot_altboot(void)
+{
+        sprintf(buf, "mmcinit 0; fatload mmc 0:1 0x%08x u-boot.altboot 1", &device);
+        if (run_command(buf, 0)) {  //no such file
+                return 'X'; // this is going to mean no such file, or I guess the file could have 'X'...
+        } else {
+        return device;
+        }
+}
+
+
+inline int write_u_boot_altboot(char value)
+{
+        sprintf(buf, "mmcinit 0; fatsave mmc 0:5 0x%08x u-boot.altboot 1", &value);
+        if (run_command(buf, 0)) {
+                printf("Error: Cannot write /bootdata/u-boot.altboot.\n");
+                return 0;
+                }
+        return value;
+}
+
+static inline enum boot_action get_boot_action(void) 
+{
+        u8 pwron = 0;
+        volatile struct bootloader_message *bcb = (struct bootloader_message *) 0x81000000;
+        volatile unsigned int *reset_reason = (unsigned int *) 0x4A307B04;
+
+        if (mmc_init(1)) {
+                printf("mmc_init failed!\n");
+                return INVALID;
+        }
+
+        // clear bootcount if requested
+        if (read_u_boot_clearbc()=='1') {
+                bootcount_store((unsigned long)0);
+        }
+
+        // Then check if there's a BCB file
+
+        if (!read_bcb()) {
+                printf("BCB found, checking...\n");
+
+                if (bcb->command[0] != 0 && bcb->command[0] != 255) {
+                        if (bcb->command[0] == 'r') 
+                                return BOOT_SD_RECOVERY;
+                        else if (bcb->command[0] == 'b') {
+			        clear_bcb();
+			        return do_menu();
+			}
+                }
+        } else {
+                lcd_console_setpos(53, 15);
+                lcd_console_setcolor(CONSOLE_COLOR_ORANGE, CONSOLE_COLOR_BLACK);
+                lcd_puts("/bootdata/BCB missing.  Running recovery.");
+                if (running_from_sd()) {
+                        return BOOT_SD_RECOVERY;
+                }
+        }
+
+        // give them time to press the button(s)
+        udelay(3000000);
+        if ((gpio_read(HOME_BUTTON) == 0) &&
+                (gpio_read(POWER_BUTTON) == 1)) {  // BOTH KEYS STILL HELD FROM UB1
+                if (running_from_sd()) {
+                        return BOOT_SD_RECOVERY;
+                        }
+                }
+
+                if ((gpio_read(HOME_BUTTON) == 0) &&
+                         (gpio_read(POWER_BUTTON) == 0))    // just HOME button is pressed
+                { 
+        		lcd_console_setpos(39, 18);
+			lcd_puts("                      ");
+			return do_menu();
+                }
+        else    // default boot
+                {
+
+                char device_flag, altboot_flag;
+                if ((running_from_sd()) && (!((device_flag = read_u_boot_device()) == '1'))) {
+			if (check_device_image(DEV_SD, "ramdisk"))
+                               	return BOOT_HYBRID;
+			else
+				return BOOT_SD_RECOVERY;
+                } else {        // running from emmc or overridden
+                               // if (altboot_flag = read_u_boot_altboot() == '1') {
+                               //         lcd_console_setpos(53, 11);
+                               //         lcd_console_setcolor(CONSOLE_COLOR_ORANGE, CONSOLE_COLOR_BLACK);
+                               //         lcd_puts("Normal SD boot overridden.  Alt boot from EMMC...");
+                               //         return BOOT_EMMC_ALTBOOT; }
+                               // else {
+                                        if ((device_flag == '1') && (running_from_sd())) {
+                                        lcd_console_setpos(53, 15);
+                                        lcd_console_setcolor(CONSOLE_COLOR_ORANGE, CONSOLE_COLOR_BLACK);
+                                        lcd_puts("SD boot overridden.  Normal boot from EMMC..."); }
+                                        return BOOT_EMMC_NORMAL;
+                               // }
+                }
+        }
+}
+
+
+static void display_feedback(enum boot_action image)
+{
+//      uint16_t *image_start;
+//      uint16_t *image_end;
+
+        lcd_bl_set_brightness(140);
+        lcd_console_setpos(36, 11);
+        lcd_console_setcolor(CONSOLE_COLOR_CYAN, CONSOLE_COLOR_BLACK);
+
+        switch(image) {
+
+        case BOOT_EMMC_NORMAL:
+                lcd_puts("    Loading Stock from EMMC...");
+                break;
+        case BOOT_SD_RECOVERY:
+                lcd_puts("    Loading Recovery from SD...");
+                break;
+        case BOOT_HYBRID:
+                lcd_puts("   Loading custom ROM from SD...");
+                break;
+
+       // case BOOT_EMMC_ALTBOOT:
+         //       lcd_puts(" Loading AltBoot from EMMC...");
+           //     break;
+      //  case BOOT_FASTBOOT:
+        //        lcd_console_setpos(54, 13);
+          //      lcd_puts(" - fastboot has started, press POWER to cancel -");
+            //    break;
+        default:
+                lcd_puts("        Loading...");
+                break;
+        }
+
+        //lcd_display_image(image_start, image_end);
+}
+
+extern int is_lg;
+
 int set_boot_mode(void)
 {
 	int ret = 0;
 	int dev = CFG_FASTBOOT_MMC_NO;
 	char boot_dev_name[8];
+	char s[10];
+	char buffer[512];
 
-	unsigned int boot_device = get_boot_device(boot_dev_name);
+//	unsigned int boot_device = get_boot_device(boot_dev_name);
+	unsigned long bootcount = bootcount_load();
 
-	printf("Booting from: %s\n", boot_dev_name);
+
 #ifdef CONFIG_USBBOOT
-	if (boot_device == BOOT_DEVICE_USB) {
-		ret = USB_BOOTIMG;
-		set_boot_cmd( USB_BOOTIMG );
-	}
-	else
+//	if (boot_device == BOOT_DEVICE_USB) {
+//		ret = USB_BOOTIMG;
+//		set_boot_cmd( USB_BOOTIMG );
+//	}
+//	else
 #endif
-	if (boot_device == BOOT_DEVICE_SD) {
+        lcd_console_setpos(0, 1); //indent slightly
+        lcd_console_setcolor(CONSOLE_COLOR_GRAY, CONSOLE_COLOR_BLACK);
+	
+        lcd_console_setpos(39, 17);
+	lcd_puts("Hold \"^\" for boot menu");
+
+	int action = get_boot_action();
+       
+	while (1) {
+                //if(charging)
+                //        lcd_bl_set_brightness(35); //batt very low, let it charge
+                //else
+                //        lcd_bl_set_brightness(100); //batt very low, let it charge
+                switch(action) {
+        	case BOOT_SD_RECOVERY:
+            		//setenv ("bootcmd", "setenv setbootargs setenv bootargs ${sdbootargs}; run setbootargs; mmcinit 0; fatload mmc 0:1 0x81000000 recovery.img; booti 0x81000000");
+			sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x androidboot.serialno=${serialnum}", FB);
+        		run_command(buffer, 0);
+			setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.cwm; bootm 0x81000000 0x82000000");
+            		setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
+                        display_feedback(BOOT_SD_RECOVERY);
+            		return 0;
+
+                case BOOT_HYBRID:
+			sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x androidboot.serialno=${serialnum}", FB);
+        		run_command(buffer, 0);
+                	setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk; bootm 0x81000000 0x82000000");
+                        setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
+                        display_feedback(BOOT_HYBRID);
+                        return 0;
+                //actually, boot from boot+512K -- thanks bauwks!
+                case BOOT_EMMC_NORMAL:
+			printf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
+        		run_command(buffer, 0);
+                	setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.stock; bootm 0x81000000 0x82000000");
+                        //setenv("bootcmd", "mmcinit 1; booti mmc1");
+                        display_feedback(BOOT_EMMC_NORMAL);
+                        return 0;
+
+                case BOOT_SD_ALTERNATE:
+			sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=hummingbird display.vendor=${display_vendor} boot.fb=%x", FB);
+        		run_command(buffer, 0);
+                	setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.alt; bootm 0x81000000 0x82000000");
+                        setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
+                        display_feedback(BOOT_SD_ALTERNATE);
+                        return 0;
+                //actually, boot from boot+512K -- thanks bauwks!
+                //actually, boot from recovery+512K -- thanks bauwks!
+                //case BOOT_EMMC_RECOVERY:
+                //        setenv("bootcmd", "mmcinit 1; booti mmc1 recovery 0x80000");
+                //        display_feedback(BOOT_EMMC_RECOVERY);
+                //        return 0;
+
+                //case BOOT_EMMC_ALTBOOT:  // no 512K offset, this is just a file.
+                //        setenv ("bootcmd", "setenv setbootargs setenv bootargs ${emmcbootargs}; run setbootargs; mmcinit 1; fatload mmc 1:5 0x81000000 altboot.img; booti 0x81000000");
+                //        setenv ("altbootcmd", "run bootcmd"); // for emmc altboot altbootcmd is the same as bootcmd
+                //        display_feedback(BOOT_EMMC_ALTBOOT);
+                //        return 0;
+
+                case INVALID:
+                default:
+                        printf("Aborting boot!\n");
+                        return 1;
+                }
+                action = do_menu();
+        }
+
+ //lcd_console_setpos(1, 1);
+        //lcd_printf("board rev: %s | %s", board_rev_string(gd->bd->bi_board_revision), (get_sdram_size() == SZ_512M?"512MB/8GB":"1GB/16GB"));
+	if (running_from_sd()) {
 		if (!check_fat_file_exists(0, 1, "uImage")) {
 			ret = SD_BOOTIMG;
 			set_boot_cmd( SD_BOOTIMG );
@@ -239,8 +518,14 @@ int set_boot_mode(void)
 			 * This is only to to allow external builds to boot,
 			 * once security is enabled, this will be pulled out
 			 */
-			ret = SD_UIMAGE;
-			set_boot_cmd( SD_UIMAGE ) ;
+			if (check_fat_file_exists(0, 1, "ramdisk.cwm") &&
+				(!check_fat_file_exists(0, 1, "ramdisk") ||
+				gpio_read(HOME_BUTTON) == 0)) {
+				ret = EMMC_RECOVERY;
+			} else {
+				ret = check_emmc_boot_mode();
+			}
+			set_boot_cmd( ret ) ;
 		}
 	} else {
 #if 0

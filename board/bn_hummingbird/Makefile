@@ -23,14 +23,14 @@ include $(TOPDIR)/config.mk
 
 LIB	= lib$(BOARD).a
 
-OBJS	:= bn_hummingbird.o mmc.o bootmode.o boot.o lowbatt_charge.o
+OBJS	:= bn_hummingbird.o mmc.o bootmode.o lowbatt_charge.o console.o menu.o cyanoboot.o
 
 CPPFLAGS += BN_HUMMINGBIRD
 
 $(LIB):	$(OBJS)
 	$(AR) crv $@ $^
 
-boot.o:
+cyanoboot.o:
 	$(OBJCOPY) -I binary -O elf32-littlearm -B arm $(patsubst %.o,%.rle,$@) $@
 lowbatt_charge.o:
 	$(OBJCOPY) -I binary -O elf32-littlearm -B arm $(patsubst %.o,%.rle,$@) $@

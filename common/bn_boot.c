@@ -59,7 +59,7 @@ void display_rle(uint16_t const *start, uint16_t *fb, int pwidth, int pheight)
 	//bootimg_info.bg_color = color;
 
 	if (pheight > pwidth)
-		fb += (pheight - 550) * pwidth + (pwidth - width)/2;
+		fb += (pheight - 450) * pwidth + (pwidth - width)/2;
 	else
 		fb += (pheight - height)/2 * pwidth + 400;
 
