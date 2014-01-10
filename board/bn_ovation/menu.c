@@ -51,14 +51,14 @@
 
 #define NUM_OPTS		INVALID  //number of boot options
 char *opt_list[NUM_OPTS] = { 
-		"  Boot from BN Stock     ",
-		"  Boot from CM10/CM10.1  ", 
-		"  Boot SD Alternate ROM  ",
-		"  Boot CWM Recovery      ",
+		" Boot from Stock BN ROM  ",
+		" Boot from CM/custom ROM ", 
+		" Boot SD Alternate ROM   ",
+		" Boot CWM Recovery       ",
 		"                         ",
-		"  Default Boot:          ", 
-		"        Device: ", 
-		"         Image: ", };
+		" Default Boot:           ", 
+		"       Device: ", 
+		"        Image: ", };
 
 // Shared sprintf buffer for fatsave/load
 static char buf[64];

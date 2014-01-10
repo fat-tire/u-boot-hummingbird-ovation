@@ -353,7 +353,7 @@ static void display_feedback(enum boot_action image)
                 lcd_puts("   Loading Recovery from SD...");
                 break;
         case BOOT_HYBRID:
-                lcd_puts("   Loading CM10/10.1 from SD...");
+                lcd_puts(" Loading custom rom from SD...");
                 break;
 
        // case BOOT_EMMC_ALTBOOT:
@@ -364,7 +364,7 @@ static void display_feedback(enum boot_action image)
           //      lcd_puts(" - fastboot has started, press POWER to cancel -");
             //    break;
         default:
-                lcd_puts("        Loading...");
+                lcd_puts("       Loading...");
                 break;
         }
 
@@ -395,7 +395,7 @@ int set_boot_mode(void)
                 switch(action) {
                 case BOOT_SD_RECOVERY:
                         //setenv ("bootcmd", "setenv setbootargs setenv bootargs ${sdbootargs}; run setbootargs; mmcinit 0; fatload mmc 0:1 0x81000000 recovery.img; booti 0x81000000");
-                        sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=ovation boot.fb=%x", FB);
+                        sprintf(buffer, "setenv bootargs ${sdbootargs} androidboot.hardware=ovation boot.fb=%x androidboot.serialno=${serialnum}", FB);
                         run_command(buffer, 0);
                         setenv ("bootcmd", "mmcinit 0; fatload mmc 0:1 0x81000000 kernel ; fatload mmc 0:1 82000000 ramdisk.cwm; bootm 0x81000000 0x82000000");
                         setenv ("altbootcmd", "run bootcmd"); // for sd boot altbootcmd is the same as bootcmd
